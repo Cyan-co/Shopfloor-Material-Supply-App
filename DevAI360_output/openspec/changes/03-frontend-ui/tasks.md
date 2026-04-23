@@ -1,38 +1,36 @@
-# Tasks: Shopfloor App Frontend Implementation
+# Frontend UI Implementation Tasks
 
-**Paths:** All frontend code under `frontend/`.
+This document lists the tasks required to implement the frontend UI for the Shopfloor Material Supply App.
 
-## Views/Pages (React)
+- [ ] **Task 1: Project Setup**
+  - **Description**: Initialize a new React project using Create React App with the TypeScript template.
+  - **Acceptance Criteria**: A new React application is created and can be started locally.
 
-- [ ] Create `src/pages/LoginPage.tsx` for the user authentication form.
-- [ ] Create `src/pages/DashboardPage.tsx` which will act as the main container and router for role-specific dashboards.
-- [ ] Implement client-side routing (e.g., using React Router) to handle navigation.
+- [ ] **Task 2: Implement API Service**
+  - **Description**: Create an API service layer (`api.ts`) that encapsulates all `fetch` or `axios` calls to the backend. It should handle attaching the JWT to headers.
+  - **Acceptance Criteria**: The API service has methods for all required backend endpoints.
 
-## Components
+- [ ] **Task 3: Implement State Management**
+  - **Description**: Set up the global state management for user authentication and session information.
+  - **Acceptance Criteria**: User data and token are stored securely upon login and cleared on logout.
 
-- [ ] Create a reusable `src/components/common/OrderCard.tsx` component.
-- [ ] Create `src/components/production/CreateOrderForm.tsx`.
-- [ ] Create `src/components/production/MyOrdersList.tsx`.
-- [ ] Create `src/components/warehouse/NewOrdersQueue.tsx`.
-- [ ] Create `src/components/warehouse/AssignedOrdersList.tsx`.
-- [ ] Create `src/components/admin/AllOrdersTable.tsx` with filtering and searching logic.
-- [ ] Create `src/components/admin/EditOrderModal.tsx`.
-- [ ] Create shared components for buttons, inputs, and modals in `src/components/common/`.
+- [ ] **Task 4: Implement Routing**
+  - **Description**: Set up client-side routing using `react-router-dom`. Implement protected routes that redirect to the login page if the user is not authenticated.
+  - **Acceptance Criteria**: All routes are defined, and protected routes are inaccessible to unauthenticated users.
 
-## Services / State Management
+- [ ] **Task 5: Build Common Components**
+  - **Description**: Create the set of reusable components like `LoginPage`, `Navbar`, `OrderCard`, and `CreateOrderForm`.
+  - **Acceptance Criteria**: Components are implemented, styled, and ready for use in the main views.
 
-- [ ] Create `src/services/api.ts` to encapsulate all `fetch` or `axios` calls to the backend, including setting the auth header.
-- [ ] Implement a state management solution (e.g., Redux Toolkit or React Context) to manage user session, roles, and shared application state.
-- [ ] Create an `auth` slice/context to handle user login, logout, and storing the JWT.
-- [ ] Create an `orders` slice/context to manage fetching and updating order data across different components.
+- [ ] **Task 6: Build Role-Based Dashboards**
+  - **Description**: Create the main dashboard views for each user role (`PRODUCTION`, `WAREHOUSE`, `ADMIN`).
+  - **Acceptance Criteria**: Each dashboard correctly displays the components and data relevant to the user's role.
 
-## Styling
+- [ ] **Task 7: Implement Role-Based UI Logic**
+  - **Description**: Add the logic to conditionally render UI elements (like buttons) based on the user's role and the state of the data.
+  - **Acceptance Criteria**: The UI dynamically adapts to the logged-in user, showing only the actions they are permitted to perform.
 
-- [ ] Set up a global stylesheet and a layout structure that ensures a responsive design for desktop, tablet, and mobile.
-- [ ] Create CSS modules or use a framework (like Tailwind CSS) for component-level styling.
-- [ ] Design clear visual cues for order statuses (e.g., color-coded badges).
-
-## Integration
-
-- [ ] Configure a proxy in the development server (e.g., in `vite.config.ts` or `webpack.config.js`) to forward `/api` requests to the backend server.
-- [ ] Implement UI feedback for API states: loading spinners, success messages, and error notifications.
+- [ ] **Task 8: Make Application Responsive**
+  - **Description**: Ensure the application is usable on a variety of screen sizes, particularly tablets and mobile devices.
+  - **Acceptance Criteria**: The layout adjusts gracefully to different viewport sizes without breaking or losing functionality.
+```
