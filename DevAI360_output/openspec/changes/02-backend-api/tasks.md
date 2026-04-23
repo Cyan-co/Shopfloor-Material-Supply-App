@@ -1,30 +1,32 @@
-# Tasks: Shopfloor App Backend API Implementation
+# Backend API Implementation Tasks
 
-**Paths:** All backend code under `backend/`.
+This document lists the tasks required to implement the backend API for the Shopfloor Material Supply App.
 
-## Service Layer (Go)
+- [ ] **Task 1: Project Setup**
+  - **Description**: Initialize a new Go project. Set up the project structure with packages for `api`, `auth`, `models`, `services`, and `store`.
+  - **Acceptance Criteria**: A new Go module is created, and the basic directory structure is in place.
 
-- [ ] Implement `internal/services/auth_service.go` with login and user creation logic.
-- [ ] Implement `internal/services/order_service.go` with core business logic for order state transitions and ownership rules.
-- [ ] Implement `internal/services/admin_service.go` for administrative overrides (edit, delete).
-- [ ] Implement `internal/services/audit_service.go` to handle the creation of audit log entries for all significant events.
-- [ ] Implement input validation for all service methods.
+- [ ] **Task 2: Implement Authentication**
+  - **Description**: Implement the `AuthService` to handle JWT-based authentication. This includes password hashing with `bcrypt` and token generation/validation.
+  - **Acceptance Criteria**: The `POST /api/auth/login` endpoint is functional and returns a valid JWT for correct credentials.
 
-## Controller/Handler Layer (Go)
+- [ ] **Task 3: Implement Auth Middleware**
+  - **Description**: Create a middleware that inspects the `Authorization` header, validates the JWT, and extracts user information (ID and role) to be used in protected routes.
+  - **Acceptance Criteria**: The middleware correctly protects routes and makes user info available in the request context.
 
-- [ ] Create API handlers in `internal/handlers/` for each endpoint defined in the proposal.
-- [ ] Implement handler for `POST /api/auth/login`.
-- [ ] Implement handlers for `POST /api/orders` and `GET /api/orders/*`.
-- [ ] Implement handlers for order status updates: `PUT /api/orders/{id}/pickup`, `transit`, `receive`.
-- [ ] Implement handlers for admin actions: `PUT /api/orders/{id}/status`, `DELETE /api/orders/{id}`.
-- [ ] Define request and response structs (DTOs) for all API endpoints to decouple the API layer from the data model.
+- [ ] **Task 4: Implement Order Service**
+  - **Description**: Implement the `OrderService` with the core business logic for managing the order lifecycle, including all state transition rules.
+  - **Acceptance Criteria**: All methods in the service are implemented and unit-tested.
 
-## Security
+- [ ] **Task 5: Implement API Endpoints**
+  - **Description**: Create the API handlers/controllers for all the endpoints defined in the proposal (`/api/orders`, `/api/users`). Connect them to the appropriate services.
+  - **Acceptance Criteria**: All API endpoints are implemented and respond correctly according to the proposal.
 
-- [ ] Implement JWT-based authentication middleware to protect endpoints.
-- [ ] Implement RBAC (Role-Based Access Control) middleware to enforce endpoint access rules based on user roles.
+- [ ] **Task 6: Implement Role-Based Access Control (RBAC)**
+  - **Description**: Integrate the auth middleware to enforce role-based access control for each endpoint as specified in the proposal.
+  - **Acceptance Criteria**: Endpoints are accessible only by users with the required roles. Unauthorized access attempts are rejected with a `403 Forbidden` status.
 
-## Error Handling
-
-- [ ] Create custom error types in `internal/errors/` for business logic failures (e.g., `ErrNotFound`, `ErrForbidden`, `ErrInvalidState`).
-- [ ] Implement a global error handling middleware to catch service-layer errors and translate them into appropriate HTTP status codes and JSON responses.
+- [ ] **Task 7: Implement Audit Logging**
+  - **Description**: Integrate the `AuditService` to log all relevant events, such as status changes and admin actions.
+  - **Acceptance Criteria**: Audit log entries are created in the database for all required events.
+```
