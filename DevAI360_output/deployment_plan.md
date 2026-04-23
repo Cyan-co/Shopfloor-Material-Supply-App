@@ -1,36 +1,58 @@
-# Deployment Plan: Shopfloor Material Supply App
+# Deployment Plan
 
-## 1. Prerequisites
+## Prerequisites
+- Docker and Docker Compose installed on the deployment server.
+- Access to a container registry (e.g., Docker Hub, GitHub Container Registry).
+- A configured PostgreSQL database, with connection details available.
 
-- A provisioned PostgreSQL database with connection details (host, port, user, password, database name).
-- A container orchestration environment (e.g., Kubernetes, Docker Swarm) for deploying the backend and frontend services.
-- CI/CD pipelines configured for building, testing, and deploying Go and React applications.
-- Environment variables configured for the backend service (database connection string, JWT secret key).
+## Step 1: Database Setup
+- **Action**: Run database migrations.
+- **Details**: The backend service will automatically apply database migrations on startup using `golang-migrate/migrate`. The migration files are located in the `/migrations` directory of the backend source code.
+- **Verification**: The `users`, `delivery_orders`, and `audit_logs` tables are created in the database with the correct schemas.
 
-## 2. Step 1: Database Setup
+## Step 2: Backend Deployment
+- **Build**:
+  1. Build the Go application into a static binary.
+  2. Build a Docker image containing the binary.
+     ```bash
+     docker build -t your-registry/shopfloor-backend:latest .
+     ```
+- **Push**:
+  ```bash
+  docker push your-registry/shopfloor-backend:latest
+  ```
+- **Deploy**:
+  - The backend will be deployed as a Docker container.
+  - Environment variables must be configured for the database connection, JWT secret, and other settings.
 
-- **Action**: Apply database migration scripts.
-- **Details**: The Go backend service will use a library like `golang-migrate/migrate`. On startup, the service will automatically apply any new migration scripts located in the `/migrations` directory to the target database. The initial migration will create the `users`, `delivery_orders`, and `audit_logs` tables.
+## Step 3: Frontend Deployment
+- **Build**:
+  1. Build the React application for production.
+     ```bash
+     npm run build
+     ```
+  2. Build a Docker image using a multi-stage `Dockerfile` with Nginx to serve the static files.
+     ```bash
+     docker build -t your-registry/shopfloor-frontend:latest .
+     ```
+- **Push**:
+  ```bash
+  docker push your-registry/shopfloor-frontend:latest
+  ```
+- **Deploy**:
+  - The frontend will be deployed as a Docker container running Nginx.
+  - Nginx will be configured to serve the React app and proxy `/api` requests to the backend service.
 
-## 3. Step 2: Backend Deployment (Go)
+## Step 4: Integration
+- A `docker-compose.yml` file will be used to orchestrate the backend, frontend, and database services.
+- The frontend container will be configured to route API requests to the backend container.
 
-- **Build**: The CI pipeline will build a statically-linked Go binary inside a minimal Docker container (e.g., `FROM scratch`).
-- **Push**: The resulting Docker image will be pushed to a container registry.
-- **Deploy**: The deployment process will pull the new image and perform a rolling update of the backend service in the target environment.
-
-## 4. Step 3: Frontend Deployment (React)
-
-- **Build**: The CI pipeline will build the static React assets (`npm run build`).
-- **Containerize**: The static assets will be placed into a lightweight web server container (e.g., Nginx).
-- **Push**: The resulting Docker image will be pushed to a container registry.
-- **Deploy**: The deployment process will perform a rolling update of the frontend service. The Nginx server will be configured to serve the React application and proxy all `/api/*` requests to the backend service.
-
-## 5. Verification
-
-- **Health Checks**: Both backend and frontend services must expose a health check endpoint (e.g., `/healthz`). The orchestration platform should use this to verify service health.
-- **Smoke Test**:
-    1. Manually access the frontend application's URL and verify the login page loads.
-    2. Log in with a test "Production" user.
-    3. Create a new delivery order.
-    4. Verify the order appears in the user's order list with the status "New".
-    5. Log in with a test "Admin" user and verify the new order is visible on the main dashboard.
+## Verification
+- **Health Checks**: Access the `/health` endpoint on the backend to ensure it is running.
+- **UI Access**: Open the application in a browser and verify that the login page loads.
+- **End-to-End Test**:
+  1. Log in as a `PRODUCTION` user.
+  2. Create a new order.
+  3. Log in as a `WAREHOUSE` user and verify the new order is visible.
+  4. Complete the order lifecycle and verify the status updates at each stage.
+```
