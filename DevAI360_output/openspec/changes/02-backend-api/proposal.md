@@ -1,69 +1,66 @@
-# Proposal: Shopfloor Material Supply App Backend API
+# Backend API Proposal
 
-**Ref:** Depends on `@openspec/changes/01-data-model`
+This document outlines the design for the Backend API of the Shopfloor Material Supply App.
 
-## 1. Service Layer
+## 1. Authentication
 
-### AuthService
-Handles user registration, login, and session management.
-**Methods:**
-- `Login(email, password)`: Authenticates a user and returns a JWT.
-- `RegisterUser(name, email, password, role)`: Creates a new user (primarily for seeding/admin use).
+- **Strategy**: JWT (JSON Web Tokens)
+- **Login Endpoint**: `POST /api/auth/login`
+  - **Request Body**: `{ "username": "user", "password": "password" }`
+  - **Response**: `{ "token": "jwt_token" }`
+- **Middleware**: All protected endpoints will require a valid JWT in the `Authorization` header (`Bearer <token>`). The middleware will decode the token to identify the user and their role.
 
-### OrderService
-Manages the core business logic for delivery orders.
-**Methods:**
-- `CreateOrder(requestorID, materialName, quantity, location)`: Creates a new order with `NEW` status.
-- `GetNewOrders()`: Returns a list of all orders with `NEW` status.
-- `GetOrdersByStatus(status)`: Returns orders matching a specific status.
-- `GetOrderById(orderID)`: Retrieves a single order.
-- `AssignOrder(orderID, processorID)`: Assigns a warehouse user to an order and sets status to `IN_PREPARATION`.
-- `UpdateOrderStatus(orderID, newStatus, userID)`: Updates an order's status, enforcing business rules.
-- `GetAllOrders()`: Returns all orders for the admin dashboard.
+## 2. API Endpoints
 
-### AdminService
-Handles administrator-specific actions that bypass standard workflows.
-**Methods:**
-- `EditOrderStatus(orderID, newStatus, adminID, reason)`: Manually changes an order's status and creates an audit log entry.
-- `DeleteOrder(orderID, adminID, reason)`: Deletes an order and creates an audit log entry.
+### Orders
 
-## 2. Business Rules
+- **`GET /api/orders`**
+  - **Description**: Get a list of delivery orders.
+  - **Role**:
+    - `PRODUCTION`: Returns orders created by the current user.
+    - `WAREHOUSE`: Returns orders with status `NEW` or assigned to the current user.
+    - `ADMIN`: Returns all orders.
+  - **Query Params**: `status`, `date_range`
+  - **Response**: `200 OK` with a list of order objects.
 
-1. **Role-Based Access (RBAC)**:
-   - **When**: Any API endpoint is accessed.
-   - **Then**: A middleware checks the user's JWT to ensure their role (`PRODUCTION`, `WAREHOUSE`, `ADMIN`) is authorized for that endpoint.
+- **`POST /api/orders`**
+  - **Description**: Create a new delivery order.
+  - **Role**: `PRODUCTION`
+  - **Request Body**: `{ "material_name": "...", "quantity": 10, "delivery_location": "..." }`
+  - **Response**: `201 Created` with the new order object.
 
-2. **Order State Transitions**:
-   - **When**: `UpdateOrderStatus` is called.
-   - **Then**: The service must validate that the transition is legal (e.g., `NEW` -> `IN_PREPARATION`, `IN_PREPARATION` -> `IN_TRANSIT`, `IN_TRANSIT` -> `COMPLETED`). Invalid transitions (e.g., `NEW` -> `COMPLETED`) are rejected.
+- **`PUT /api/orders/{id}/status`**
+  - **Description**: Update the status of an order.
+  - **Role**:
+    - `WAREHOUSE`: Can change status from `NEW` to `IN_PREPARATION` (pick up), and from `IN_PREPARATION` to `IN_TRANSIT`.
+    - `PRODUCTION`: Can change status from `IN_TRANSIT` to `COMPLETED`.
+    - `ADMIN`: Can change status to any valid state.
+  - **Request Body**: `{ "status": "new_status", "reason": "(optional)" }`
+  - **Response**: `200 OK` with the updated order object.
 
-3. **Order Ownership**:
-   - **When**: A user attempts to update an order.
-   - **Then**: The service verifies the user's role and, if applicable, their relationship to the order (e.g., only the original requestor can mark it `COMPLETED`).
+- **`DELETE /api/orders/{id}`**
+  - **Description**: Delete an order.
+  - **Role**: `ADMIN`
+  - **Request Body**: `{ "reason": "reason_for_deletion" }`
+  - **Response**: `204 No Content`.
 
-4. **Audit Logging**:
-   - **When**: An order's status is changed, or an admin edits/deletes an order.
-   - **Then**: An entry must be created in the `audit_logs` table detailing the change, the user who made it, and the reason (if applicable).
+### Users
 
-## 3. API Endpoints
+- **`GET /api/users`**
+  - **Description**: Get a list of users.
+  - **Role**: `ADMIN`
+  - **Response**: `200 OK` with a list of user objects.
 
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| POST | /api/auth/login | Authenticate a user | No |
-| POST | /api/orders | Create a new delivery order | Yes (`PRODUCTION`) |
-| GET | /api/orders | Get orders based on user role and status query | Yes (`PRODUCTION`, `WAREHOUSE`) |
-| GET | /api/orders/all | Get all orders, any status | Yes (`ADMIN`) |
-| GET | /api/orders/{id} | Get a single order by ID | Yes (All roles) |
-| PUT | /api/orders/{id}/pickup | Pick up a new order | Yes (`WAREHOUSE`) |
-| PUT | /api/orders/{id}/transit | Mark an order as in transit | Yes (`WAREHOUSE`) |
-| PUT | /api/orders/{id}/receive | Mark an order as completed | Yes (`PRODUCTION`) |
-| PUT | /api/orders/{id}/status | Manually edit an order's status | Yes (`ADMIN`) |
-| DELETE | /api/orders/{id} | Delete an order | Yes (`ADMIN`) |
+- **`POST /api/users`**
+  - **Description**: Create a new user.
+  - **Role**: `ADMIN`
+  - **Request Body**: `{ "username": "...", "password": "...", "role": "..." }`
+  - **Response**: `201 Created` with the new user object.
 
-## 4. Error Handling
+## 3. Services
 
-- `400 Bad Request`: Validation error on request body (e.g., missing fields).
-- `401 Unauthorized`: User is not authenticated (missing or invalid JWT).
-- `403 Forbidden`: User is authenticated but their role is not authorized for the action.
-- `404 Not Found`: The requested resource (e.g., order) does not exist.
-- `409 Conflict`: Business rule violation (e.g., invalid status transition).
+- **`AuthService`**: Handles user authentication, password hashing, and JWT generation/validation.
+- **`OrderService`**: Contains the core business logic for managing the lifecycle of delivery orders. It will enforce state transition rules and handle authorization checks.
+- **`UserService`**: Manages user creation and retrieval.
+- **`AuditService`**: Logs all significant events to the `audit_logs` table.
+```
