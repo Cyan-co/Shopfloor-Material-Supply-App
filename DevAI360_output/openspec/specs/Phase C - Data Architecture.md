@@ -4,15 +4,15 @@
 
 ### Data Principles
 - **Single Source of Truth:** The PostgreSQL database is the absolute source of truth for all application data.
-- **Data Integrity:** Data integrity is enforced at the database level using constraints (NOT NULL, FOREIGN KEY, CHECK) as the final guarantee.
-- **Immutable Audit Trail:** All business-critical operations, especially state changes and administrative actions, **MUST** be recorded in an immutable audit log.
-- **Soft Delete:** Business-critical entities like Delivery Orders should be soft-deleted to allow for recovery and maintain historical data integrity.
+- **Data Integrity by Default:** Integrity is enforced at the database level using constraints (NOT NULL, FK, CHECK) to prevent invalid data, regardless of the application logic.
+- **Auditing is Mandatory:** All changes to business-critical entities, especially `delivery_orders`, must be captured in an immutable audit trail.
+- **Soft Deletes for Safety:** Business-critical records should be soft-deleted to allow for recovery and maintain historical integrity.
 
 ### Technology Stack
 - **Database:** PostgreSQL 15+
-- **ORM:** Spring Data JPA (Hibernate)
-- **Migrations:** Flyway for version-controlled, automated schema migrations.
-- **Caching:** Redis (Optional for V1, can be added later for performance optimization of frequently read, semi-static data).
+- **ORM:** Spring Data JPA
+- **Migrations:** Flyway for schema version control.
+- **Caching:** Redis is recommended for caching frequently accessed, non-critical data like user sessions, but is not mandatory for V1.
 
 ---
 
@@ -22,54 +22,17 @@
 
 | Entity | Description |
 |---|---|
-| **User** | Represents a user of the system, can be a Production Line User, Warehouse User, or Admin. |
-| **DeliveryOrder** | Represents a single material supply request and its entire lifecycle. |
-| **AuditLog** | An immutable record of every significant action performed on a DeliveryOrder. |
+| **User** | Represents an actor in the system (Production, Warehouse, Admin). |
+| **DeliveryOrder** | The central entity representing a single material supply request. |
+| **AuditLog** | Records every state change and modification to a `DeliveryOrder`. |
 
 ### 2.2 Entity Relationships
 
 ```
-User (1) ----< (N) DeliveryOrder (as Requestor)
-User (1) ----< (N) DeliveryOrder (as Processor)
+User (1) ----< (N) DeliveryOrder (as requester)
+User (1) ----< (N) DeliveryOrder (as processor)
 DeliveryOrder (1) ----< (N) AuditLog
 ```
-
-### 2.3 Entity Attributes
-
-**Entity: User**
-| Attribute | Type | Nullable | Description |
-|---|---|---|---|
-| id | UUID | No | Primary key |
-| email | String | No | Unique login email |
-| password_hash | String | No | Hashed password (bcrypt) |
-| role | String | No | User role (`ROLE_PRODUCTION`, `ROLE_WAREHOUSE`, `ROLE_ADMIN`) |
-| created_at | TIMESTAMP | No | Creation timestamp |
-| updated_at | TIMESTAMP | No | Last update timestamp |
-
-**Entity: DeliveryOrder**
-| Attribute | Type | Nullable | Description |
-|---|---|---|---|
-| id | UUID | No | Primary key |
-| material_name | String | No | Name of the requested material |
-| quantity | Integer | No | Amount of material requested |
-| delivery_location | String | No | Where the material needs to be delivered |
-| status | String | No | Current state of the order (`NEW`, `IN_PREPARATION`, etc.) |
-| requestor_id | UUID | No | Foreign key to the User who created the order |
-| processor_id | UUID | Yes | Foreign key to the User who is processing the order |
-| is_deleted | Boolean | No | Soft delete flag, default `false` |
-| created_at | TIMESTAMP | No | Creation timestamp |
-| updated_at | TIMESTAMP | No | Last update timestamp |
-
-**Entity: AuditLog**
-| Attribute | Type | Nullable | Description |
-|---|---|---|---|
-| id | UUID | No | Primary key |
-| order_id | UUID | No | Foreign key to the DeliveryOrder being audited |
-| user_id | UUID | No | Foreign key to the User who performed the action |
-| action | String | No | Action performed (e.g., `CREATE`, `STATUS_CHANGE`, `DELETE`) |
-| reason | String | Yes | Justification for admin edits/deletions |
-| details | JSONB | Yes | JSON object containing details of the change |
-| timestamp | TIMESTAMP | No | Timestamp of the action |
 
 ---
 
@@ -79,68 +42,83 @@ DeliveryOrder (1) ----< (N) AuditLog
 
 | Element | Convention | Example |
 |---|---|---|
-| Table | snake_case, plural | `users`, `delivery_orders` |
-| Column | snake_case | `created_at`, `order_status` |
+| Table | `snake_case`, plural | `delivery_orders`, `users` |
+| Column | `snake_case` | `created_at`, `order_status` |
 | Primary Key | `id` | `id` |
-| Foreign Key | `{table_name_singular}_id` | `user_id`, `order_id` |
+| Foreign Key | `{table_name_singular}_id` | `user_id`, `delivery_order_id` |
 | Index | `idx_{table}_{columns}` | `idx_delivery_orders_status` |
-| Unique Constraint | `uq_{table}_{columns}` | `uq_users_email` |
 
 ### 3.2 Table Definitions
 
 **Table: `users`**
+
 | Column | Type | Constraints | Index |
 |---|---|---|---|
 | id | UUID | PK, NOT NULL | PK |
-| email | VARCHAR(255) | NOT NULL | `uq_users_email` (UNIQUE) |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | UQ |
 | password_hash | VARCHAR(255) | NOT NULL | - |
-| role | VARCHAR(50) | NOT NULL | - |
+| role | VARCHAR(50) | NOT NULL, CHECK (role IN ('PRODUCTION', 'WAREHOUSE', 'ADMIN')) | IDX |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | - |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | - |
 
 **Table: `delivery_orders`**
+
 | Column | Type | Constraints | Index |
 |---|---|---|---|
 | id | UUID | PK, NOT NULL | PK |
 | material_name | VARCHAR(255) | NOT NULL | - |
-| quantity | INT | NOT NULL, CHECK (quantity > 0) | - |
+| quantity | INTEGER | NOT NULL, CHECK (quantity > 0) | - |
 | delivery_location | VARCHAR(255) | NOT NULL | - |
-| status | VARCHAR(50) | NOT NULL | `idx_delivery_orders_status` |
-| requestor_id | UUID | NOT NULL, FK to `users(id)` | `idx_delivery_orders_requestor_id` |
-| processor_id | UUID | NULL, FK to `users(id)` | `idx_delivery_orders_processor_id` |
-| is_deleted | BOOLEAN | NOT NULL, DEFAULT false | - |
+| status | VARCHAR(50) | NOT NULL, CHECK (status IN ('NEW', 'IN_PREPARATION', 'IN_TRANSIT', 'COMPLETED', 'DELETED')) | IDX |
+| requester_id | UUID | FK to `users(id)`, NOT NULL | IDX |
+| processor_id | UUID | FK to `users(id)`, NULL | IDX |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | - |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | - |
 
 **Table: `audit_logs`**
+
 | Column | Type | Constraints | Index |
 |---|---|---|---|
-| id | UUID | PK, NOT NULL | PK |
-| order_id | UUID | NOT NULL, FK to `delivery_orders(id)` | `idx_audit_logs_order_id` |
-| user_id | UUID | NOT NULL, FK to `users(id)` | - |
-| action | VARCHAR(100) | NOT NULL | - |
-| reason | TEXT | NULL | - |
-| details | JSONB | NULL | - |
-| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | - |
+| id | BIGSERIAL | PK, NOT NULL | PK |
+| delivery_order_id | UUID | FK to `delivery_orders(id)`, NOT NULL | IDX |
+| user_id | UUID | FK to `users(id)`, NOT NULL | IDX |
+| action | VARCHAR(50) | NOT NULL | - |
+| details | TEXT | NULL | - |
+| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | IDX |
+
+### 3.3 Index Strategy
+- **`delivery_orders(status)`**: To quickly query orders by their current state for the dashboards.
+- **All Foreign Keys**: `requester_id`, `processor_id`, `delivery_order_id` must be indexed to ensure fast JOIN performance.
+- **`audit_logs(timestamp)`**: To allow efficient time-based querying of the audit trail.
 
 ---
 
-## 4. Data Migration
+## 4. Data Integrity
 
-### Migration Strategy
-- **Tool:** Flyway
-- **Location:** SQL migration scripts will be located in `src/main/resources/db/migration`.
-- **Naming:** `V{YYYYMMDDHHMM}__{Description}.sql` (e.g., `V202404061000__create_users_table.sql`).
-- **Rule:** Migrations are forward-only. Any corrections must be made in a new migration script. No modifications to committed migration files are allowed.
+### 4.1 Referential Integrity
+- `delivery_orders.requester_id` refers to `users.id`. `ON DELETE RESTRICT` - a user cannot be deleted if they have orders.
+- `delivery_orders.processor_id` refers to `users.id`. `ON DELETE SET NULL` - if a warehouse user is deleted, their assigned orders become unassigned.
+- `audit_logs.delivery_order_id` refers to `delivery_orders.id`. `ON DELETE CASCADE` - if an order is purged, its audit logs are purged too.
+
+### 4.2 Business Constraints
+- `users.role` must be one of 'PRODUCTION', 'WAREHOUSE', or 'ADMIN'.
+- `delivery_orders.status` must be one of 'NEW', 'IN_PREPARATION', 'IN_TRANSIT', 'COMPLETED', or 'DELETED'.
+- `delivery_orders.quantity` must be greater than zero.
 
 ---
 
-## 5. Data Security
+## 5. Data Migration
 
-### Sensitive Data
-- **User Passwords:** **MUST** be hashed using a strong, salted algorithm like bcrypt. Raw passwords must never be stored.
-- **PII:** User emails are considered sensitive and should be protected.
+### 5.1 Migration Strategy
+- **Tool:** Flyway will be integrated into the Spring Boot application.
+- **Process:** Migrations will run automatically on application startup.
+- **Naming:** `V<YYYYMMDDHHMM>__Description_in_snake_case.sql` (e.g., `V202310271000__Create_users_table.sql`).
+- **Rule:** Migrations must be forward-only and non-destructive in production.
 
-### Access Control
-- The application will connect to the database via a dedicated service account with limited privileges (CRUD on its own tables).
-- Direct database access by developers should be read-only in staging and production environments.
+---
+
+## 6. Audit Trail
+
+The `audit_logs` table provides a complete, immutable history of every Delivery Order.
+- An entry **MUST** be created in this table within the same database transaction as any change to a `delivery_orders` record.
+- For `Admin` actions (manual edit/delete), the `details` column must contain the reason provided by the Admin.
