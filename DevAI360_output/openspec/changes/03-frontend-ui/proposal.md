@@ -1,45 +1,73 @@
-# Frontend UI Proposal
+# Proposal: Shopfloor Material Supply App Frontend UI
 
-This document outlines the design for the Frontend UI of the Shopfloor Material Supply App. The UI will be a responsive web application built with React and TypeScript.
+**Ref:** Depends on `@openspec/changes/01-data-model`, `@openspec/changes/02-backend-api`
 
-## 1. Views and Components
+## 1. View Architecture
 
-### Common Components
-- **`LoginPage.tsx`**: A simple form for user login.
-- **`Navbar.tsx`**: Top navigation bar with logout button and user info.
-- **`OrderCard.tsx`**: A reusable component to display a summary of a delivery order.
-- **`OrderList.tsx`**: A component to display a list of `OrderCard` components.
-- **`CreateOrderForm.tsx`**: A modal or form for creating a new order.
+### Login View
+- **Purpose**: Secure user authentication.
+- **User Roles**: All (unauthenticated).
+- **Layout**: Centered form with fields for username and password.
 
-### Role-Based Views
+### Dashboard View (Role-Based)
+- **Purpose**: Main workspace for users after logging in. The content is dynamically rendered based on user role.
+- **User Roles**: All (authenticated).
+- **Layout**: Top navigation bar with app title and logout button. Main content area displays one of the role-specific dashboards.
 
-- **Production User Dashboard**
-  - Displays a list of orders created by the user.
-  - A prominent "Create New Order" button that opens the `CreateOrderForm`.
-  - An action button on each "In Transit" order to "Receive" it.
+#### Production Line Dashboard
+- A "Create New Order" form.
+- A list/table of orders created by the current user, showing their status.
 
-- **Warehouse User Dashboard**
-  - Displays two lists of orders:
-    1.  "New Orders" - All orders with `NEW` status.
-    2.  "My Orders" - Orders assigned to the current user (`IN_PREPARATION`, `IN_TRANSIT`).
-  - Action buttons on orders to "Pick Up" (for new orders) and "Mark as In Transit" (for in-preparation orders).
+#### Warehouse Dashboard
+- A list/table of all orders with "New" status, each with a "Pick Up" button.
+- A list/table of orders assigned to the current user with "In Preparation" status, each with a "Mark as In Transit" button.
 
-- **Admin Dashboard**
-  - Displays a comprehensive list of all orders, regardless of status.
-  - Includes search and filter controls (by status, date, etc.).
-  - Action buttons on each order to "Edit Status" or "Delete".
+#### Admin Dashboard
+- A comprehensive table of all orders in the system.
+- Search and filter controls (by status, date, material).
+- "Edit" and "Delete" buttons available for each order.
 
-## 2. State Management
+## 2. Component Requirements
 
-- **Strategy**: React Context API or a lightweight state management library like Zustand.
-- **User State**: The logged-in user's information (including role and JWT) will be stored in a global state and persisted in local storage.
-- **Data Fetching**: A dedicated API service (`api.ts`) will handle all communication with the backend, attaching the auth token to every request. React Query will be used for data fetching, caching, and state synchronization.
+| Component | Purpose | Data Source |
+|---|---|---|
+| `LoginForm` | Handles user authentication. | `/api/v1/auth/login` |
+| `OrderList` | Displays a list of orders. Reusable for all roles. | `/api/v1/orders` |
+| `OrderListItem` | Renders a single order row with role-specific action buttons. | N/A (props) |
+| `CreateOrderForm` | Form for Production Line Users to create new orders. | `/api/v1/orders` |
+| `AdminOrderControls` | Search and filter inputs for the Admin dashboard. | `/api/v1/orders` |
+| `StatusBadge` | Displays order status with a distinct color. | N/A (props) |
+| `Navbar` | Top-level navigation and logout functionality. | `/api/v1/auth/logout` |
 
-## 3. Routing
+## 3. User Interactions
 
-- **`/login`**: The login page.
-- **`/`**: The main dashboard, which will render the correct view based on the user's role.
-- **`/admin`**: The admin dashboard.
+### Create Order
+- **Trigger**: Production Line User clicks "Submit" on the `CreateOrderForm`.
+- **Action**: A `POST` request is sent to `/api/v1/orders`.
+- **Feedback**: The form is cleared, and the new order appears in the user's order list. A success notification is shown.
 
-A protected route component will wrap the main routes to redirect unauthenticated users to the login page.
-```
+### Update Order Status (e.g., Pick Up)
+- **Trigger**: Warehouse User clicks the "Pick Up" button on a `NEW` order.
+- **Action**: A `PUT` request is sent to `/api/v1/orders/{id}/pickup`.
+- **Feedback**: The button is disabled, and the order moves from the "New" list to the "In Preparation" list.
+
+## 4. Role-based Visibility
+
+| Element/Action | `PRODUCTION_LINE` | `WAREHOUSE` | `ADMIN` |
+|---|---|---|---|
+| Create Order Form | ✓ | ✗ | ✗ |
+| "Pick Up" Button | ✗ | ✓ (on `NEW` orders) | ✗ |
+| "In Transit" Button | ✗ | ✓ (on own `IN_PREP` orders) | ✗ |
+| "Receive" Button | ✓ (on own `IN_TRANSIT` orders) | ✗ | ✗ |
+| View All Orders | ✗ | ✗ | ✓ |
+| Edit/Delete Buttons | ✗ | ✗ | ✓ |
+
+## 5. API Integration
+
+| Component | Endpoint | Method | Purpose |
+|---|---|---|---|
+| `LoginForm` | `/api/v1/auth/login` | POST | Authenticate user. |
+| `OrderList` | `/api/v1/orders` | GET | Fetch orders relevant to the user's role. |
+| `CreateOrderForm` | `/api/v1/orders` | POST | Create a new delivery order. |
+| `OrderListItem` | `/api/v1/orders/{id}/...` | PUT | Perform status update actions (pickup, transit, receive). |
+| `AdminOrderControls`| `/api/v1/orders` | GET | Fetch orders with search/filter query parameters. |

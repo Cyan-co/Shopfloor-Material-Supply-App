@@ -1,38 +1,16 @@
-# Detailed Design: Shopfloor Material Supply App
+# Low-Level Design — Complete
 
-This document provides a consolidated summary of the detailed design for the Shopfloor Material Supply App, covering the data model, backend API, and frontend UI.
+**Requirement:** A web application for a shopfloor material supply system where production line users can request materials from the warehouse. The system must track the order lifecycle from creation to completion and allow admins to manage all orders.
 
-## 1. Data Model
+### Generated Files
 
-The data model is designed around three core entities: `users`, `delivery_orders`, and `audit_logs`.
+[x] Step 01: Data Model  → `changes/01-data-model/proposal.md` + `tasks.md`
+[x] Step 02: Backend API → `changes/02-backend-api/proposal.md` + `tasks.md`
+[x] Step 03: Frontend UI → `changes/03-frontend-ui/proposal.md` + `tasks.md`
 
-- **`users`**: Stores user information, including their role (`PRODUCTION`, `WAREHOUSE`, `ADMIN`).
-- **`delivery_orders`**: Represents a material request with a status that tracks its lifecycle (`NEW`, `IN_PREPARATION`, `IN_TRANSIT`, `COMPLETED`).
-- **`audit_logs`**: Provides an immutable record of all significant actions performed on an order, ensuring accountability.
+### Summary
 
-For detailed schemas, see `01-data-model/proposal.md`.
-
-## 2. Backend API
-
-The backend will be a Go-based REST API secured with JWT authentication.
-
-- **Authentication**: A `POST /api/auth/login` endpoint will issue JWTs. A middleware will protect all other endpoints.
-- **Core Endpoints**: The API provides standard CRUD operations on `/api/orders` and `/api/users`.
-- **Business Logic**: State transitions for orders are managed through a dedicated `PUT /api/orders/{id}/status` endpoint, with role-based rules enforced by the `OrderService`.
-- **Admin Capabilities**: Admins have full access to manage users and can manually edit or delete orders, with all such actions being logged.
-
-For a full list of endpoints and service descriptions, see `02-backend-api/proposal.md`.
-
-## 3. Frontend UI
-
-The frontend will be a responsive React application with role-based views.
-
-- **Technology**: Built with React and TypeScript, using React Router for navigation and a lightweight state management solution.
-- **User Experience**:
-  - **Production users** will have a simple interface to create new orders and track their progress.
-  - **Warehouse users** will have a dashboard to manage new and in-progress orders.
-  - **Admins** will have a comprehensive view of all orders with powerful search and management tools.
-- **Component-Based Design**: The UI will be built from a set of reusable components, ensuring consistency and maintainability.
-
-For detailed view descriptions and component breakdowns, see `03-frontend-ui/proposal.md`.
-```
+The low-level design for the Shopfloor Material Supply App has been generated across three layers:
+1.  **Data Model**: Defined `User`, `DeliveryOrder`, and `AuditLog` entities with their schemas and relationships in a PostgreSQL database.
+2.  **Backend API**: Designed a Go-based RESTful API with role-based access control, service-oriented business logic for handling the order lifecycle, and endpoints for all required user actions.
+3.  **Frontend UI**: Outlined a role-based interface using React, detailing the necessary views, components, and API integrations to provide a seamless user experience for Production, Warehouse, and Admin users.
