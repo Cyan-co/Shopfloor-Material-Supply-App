@@ -1,53 +1,61 @@
 # Phase A: Architecture Vision
 
-## 1. Vision and Scope
+## 1. Vision and scope
 
 ### Vision
-To create a robust, real-time web application that digitizes and streamlines the shopfloor material request process. The application will serve as the single source of truth for all material supply orders, aiming to significantly improve operational efficiency, increase visibility and accountability, and reduce fulfillment errors.
+To create a seamless, real-time, and error-proof digital bridge between the shopfloor and the warehouse, ensuring production lines are supplied with the right materials at the right time. This application will serve as the single source of truth for material flow, improving efficiency, providing operational visibility, and forming a data foundation for future analytics.
 
 ### Scope
-The application will manage the end-to-end lifecycle of a material "Delivery Order." This includes:
-- **Creation:** Production Line Users can create new material requests.
-- **Processing:** Warehouse Users can view, pick up, and prepare orders.
-- **Tracking:** The status of an order progresses from "New" to "In Preparation," "In Transit," and finally "Completed."
-- **Administration:** Admins have full oversight, with the ability to view all orders and manually edit or delete them with an audit trail.
+This project covers the design, development, and deployment of a web application that facilitates the entire lifecycle of a material supply request. The scope for Version 1.0 includes:
+- User authentication and role-based access for three distinct roles: Production Line User, Warehouse User, and Admin.
+- A digital workflow for creating, processing, and receiving material "Delivery Orders."
+- Real-time status tracking of orders from "New" to "Completed."
+- An administrative dashboard for monitoring all orders and performing manual overrides (edit status, delete orders) with full audit trails.
+- The application will be a responsive web app, accessible on both desktop and mobile devices.
 
-**Version 1.0 of the application will exclude:**
-- Integration with existing inventory management systems.
-- Push notifications or email alerts.
+**Out of Scope for V1.0:**
+- Integration with external inventory management systems.
+- Push notifications and email alerts.
 - Advanced analytics and reporting dashboards.
-- Request prioritization (all requests are FIFO).
+- Automated request prioritization (all requests are FIFO).
 
 ### Stakeholders
-- **Production Line User:** Initiates and receives material orders.
-- **Warehouse User:** Fulfills and updates the status of material orders.
-- **Admin:** Manages the system, users, and all orders.
+| Stakeholder | Role | Interest |
+|---|---|---|
+| Production Line User | End User | Fast and easy way to request materials, confirmation of delivery. |
+| Warehouse User | End User | Clear, consolidated list of new orders; simple process to update order status. |
+| Shopfloor Manager | Business Stakeholder | Reduced production downtime, improved material flow efficiency. |
+| Warehouse Manager | Business Stakeholder | Improved order accuracy, better workload management for warehouse staff. |
+| System Administrator | Technical Stakeholder | System oversight, user management, ability to correct data errors. |
 
-## 2. Architecture Principles (Impact on Implementation)
+---
 
-These principles are mandatory and must be enforced during development and code review.
+## 2. Architecture principles (impact on implementation)
 
-| # | Principle | Rationale | Implementation Impact |
+| # | Principle | Rationale | Implementation impact |
 |---|---|---|---|
-| 1 | **API-First Design** | The system's logic must be exposed via a well-defined API. This decouples the frontend from the backend, enabling parallel development and allowing for future client applications (e.g., native mobile) to be built on the same backend. | The backend team must deliver a complete OpenAPI (or similar) specification before frontend implementation begins. The frontend MUST only interact with the backend through this defined API. |
-| 2 | **Stateless Services** | Backend services must not store any session state. State must be externalized to a database or cache. This is critical for horizontal scalability, reliability, and simplified deployments. | No user or session data may be stored in the memory of a service instance. All state required to fulfill a request must be retrieved from the database on each call. JWT or similar tokens will be used for stateless authentication. |
-| 3 | **Immutable Audit Trail** | Every event that changes the state of a Delivery Order (creation, status change, deletion, edit) must be recorded in an immutable log. This directly supports reliability (SYS-003) and admin functions (FR-007, FR-008). | An `order_audit_log` table must be created. Any service function that modifies an order MUST also write a corresponding entry to this log within the same database transaction to ensure atomicity. The log entries cannot be updated or deleted. |
-| 4 | **Strict Role-Based Access Control (RBAC)** | All API endpoints must be protected and require proper authentication and authorization. This is the primary mechanism for enforcing security (SYS-001) and ensuring users can only perform actions permitted for their role. | Every API endpoint must have a middleware/decorator that verifies the user's role against a list of permitted roles for that specific action before any business logic is executed. |
-| 5 | **Responsive Single-Page Application (SPA)** | The user interface must be a responsive web application that provides a fluid user experience on both desktop and mobile/tablet devices. This addresses usability requirement SYS-002. | The frontend will be built using a modern JavaScript framework (e.g., Angular, React, or Vue). The application must use a responsive design system (e.g., CSS Grid/Flexbox) and be tested on various screen sizes. |
+| 1 | **Stateless Services** | To ensure scalability and resilience, backend services must not store session state. This allows for horizontal scaling and simplifies failover. | - All API endpoints must be RESTful and stateless. <br> - Client-side tokens (e.g., JWT) must be used for managing user sessions. <br> - No in-memory storage of user data on the server between requests. |
+| 2 | **Immutable Audit Trail** | To meet reliability and accountability requirements (FR-007, FR-008, SYS-003), every state change of an order must be captured and be immutable. | - Use an append-only log or a dedicated `order_history` table to record all status changes. <br> - The primary `orders` table should show the *current* state, but the history table must be the source of truth for audits. <br> - API endpoints that modify order state MUST write to the audit trail in the same transaction. |
+| 3 | **Spec-First API Development** | To decouple frontend and backend development and ensure clear contracts, the API will be defined using the OpenAPI 3.0 specification *before* any implementation begins. | - An `openapi.yaml` file will be created and committed to the repository. <br> - Backend development must implement the API exactly as defined in the spec. <br> - Frontend development can use the spec to create mock servers and build UI components in parallel. |
+| 4 | **Role-Based Access Control (RBAC) at the API Gateway** | To enforce security (SYS-001) consistently and centrally, access control logic must be handled at the API gateway or a dedicated middleware layer, not within business logic. | - API endpoints must be annotated with the required roles (e.g., `@requires(role='Admin')`). <br> - A middleware function will intercept all incoming requests, validate the user's JWT, and check their role against the required role for the endpoint. <br> - Business logic code should assume the user is authorized and not contain any role-checking `if` statements. |
+| 5 | **Component-Based Frontend Architecture** | To ensure maintainability and reusability of the UI (SYS-002), the frontend will be built as a collection of small, independent, and reusable components. | - The application will be built using Angular 17. <br> - Features will be broken down into "smart" container components and "dumb" presentational components. <br> - A shared component library will be created for common UI elements (buttons, forms, modals). |
+| 6 | **Data-at-Rest Encryption** | To protect sensitive operational data, all data stored in the database must be encrypted at rest. | - The chosen database solution (e.g., PostgreSQL on a managed cloud service) must have data-at-rest encryption enabled. <br> - No unencrypted backups or exports of the database are permitted. |
 
-## 3. How to Use This Document
+---
 
-This document is the primary guide for all subsequent architecture and design decisions.
+## 3. How to use this document
 
-- **When to Read:** All technical team members must read this document before starting any design or implementation work. It should be revisited at the beginning of each new development cycle.
-- **How to Apply:** Every line of code, API endpoint, and UI component must adhere to the principles laid out in section 2. These principles are not suggestions; they are constraints on the implementation.
-- **Conflict Resolution:** If a proposed design or implementation conflicts with a principle, the principle takes precedence. If there is a strong business or technical reason to deviate, an Architecture Decision Record (ADR) must be created and approved by the Solution Architect.
+- **When to read:** This document is the primary architectural guide and must be read by all developers, architects, and technical leads before starting any implementation work.
+- **How to apply:** All design decisions and code implementation must adhere to the principles defined in Section 2. When designing a new feature, explicitly reference the principles that guide your design.
+- **Conflict resolution:** If a requirement seems to conflict with a principle, a formal Architecture Decision Record (ADR) must be created to document the conflict and the resolution. The default position is to uphold the principle.
+
+---
 
 ## 4. References
 
-This document is the first of several architecture specifications. The full set will include:
-- **Phase B - Business Architecture** (Forthcoming)
-- **Phase C - Application & Data Architecture** (Forthcoming)
-- **Phase D - Technology Architecture** (Forthcoming)
-- **Phase F - Implementation and Migration Plan** (Forthcoming)
-- **Phase G - Implementation Governance** (Forthcoming)
+- Phase B – Business Architecture.md *(pending)*
+- Phase C – Application & Data Architecture.md *(pending)*
+- Phase D – Technology Architecture.md *(pending)*
+- Phase F – Implementation and Migration Plan.md *(pending)*
+- Phase G – Implementation Governance.md *(pending)*
+- Phase H – Architecture Changeamento.md *(pending)*
