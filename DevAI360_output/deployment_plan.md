@@ -1,58 +1,47 @@
-# Deployment Plan
+# Deployment Plan: Shopfloor Material Supply App
 
-## Prerequisites
-- Docker and Docker Compose installed on the deployment server.
-- Access to a container registry (e.g., Docker Hub, GitHub Container Registry).
-- A configured PostgreSQL database, with connection details available.
+This document outlines the steps to deploy the Shopfloor Material Supply App, which consists of a Go backend, a React frontend, and a PostgreSQL database.
 
-## Step 1: Database Setup
-- **Action**: Run database migrations.
-- **Details**: The backend service will automatically apply database migrations on startup using `golang-migrate/migrate`. The migration files are located in the `/migrations` directory of the backend source code.
-- **Verification**: The `users`, `delivery_orders`, and `audit_logs` tables are created in the database with the correct schemas.
+## 1. Prerequisites
 
-## Step 2: Backend Deployment
-- **Build**:
-  1. Build the Go application into a static binary.
-  2. Build a Docker image containing the binary.
-     ```bash
-     docker build -t your-registry/shopfloor-backend:latest .
-     ```
-- **Push**:
-  ```bash
-  docker push your-registry/shopfloor-backend:latest
-  ```
-- **Deploy**:
-  - The backend will be deployed as a Docker container.
-  - Environment variables must be configured for the database connection, JWT secret, and other settings.
+- A provisioned PostgreSQL database with connection details (host, port, user, password, database name).
+- A server environment (e.g., a VM or Kubernetes cluster) to run the backend and frontend applications.
+- Docker and Docker Compose installed for containerized deployment.
 
-## Step 3: Frontend Deployment
-- **Build**:
-  1. Build the React application for production.
-     ```bash
-     npm run build
-     ```
-  2. Build a Docker image using a multi-stage `Dockerfile` with Nginx to serve the static files.
-     ```bash
-     docker build -t your-registry/shopfloor-frontend:latest .
-     ```
-- **Push**:
-  ```bash
-  docker push your-registry/shopfloor-frontend:latest
-  ```
-- **Deploy**:
-  - The frontend will be deployed as a Docker container running Nginx.
-  - Nginx will be configured to serve the React app and proxy `/api` requests to the backend service.
+## 2. Environment Configuration
 
-## Step 4: Integration
-- A `docker-compose.yml` file will be used to orchestrate the backend, frontend, and database services.
-- The frontend container will be configured to route API requests to the backend container.
+- **Backend (`backend/.env`)**:
+  - `DATABASE_URL`: The connection string for the PostgreSQL database.
+  - `JWT_SECRET`: A strong, randomly generated secret for signing JWTs.
+- **Frontend (`frontend/.env`)**:
+  - `REACT_APP_API_BASE_URL`: The public URL of the backend API (e.g., `https://api.shopfloor.example.com`).
 
-## Verification
-- **Health Checks**: Access the `/health` endpoint on the backend to ensure it is running.
-- **UI Access**: Open the application in a browser and verify that the login page loads.
-- **End-to-End Test**:
-  1. Log in as a `PRODUCTION` user.
-  2. Create a new order.
-  3. Log in as a `WAREHOUSE` user and verify the new order is visible.
-  4. Complete the order lifecycle and verify the status updates at each stage.
-```
+## 3. Deployment Steps
+
+### Step 1: Database Migrations
+1.  The Go backend will use a library like `golang-migrate/migrate`.
+2.  The migrations are stored in the `backend/migrations` directory.
+3.  Upon application startup, the backend will automatically check for and apply any pending database migrations to ensure the schema is up to date.
+
+### Step 2: Backend Deployment (Go)
+1.  Build a static Go binary: `go build -o main ./cmd/server`.
+2.  Create a Docker image for the backend service. The Dockerfile will copy the binary and the `.env` configuration file.
+3.  Push the Docker image to a container registry.
+4.  Deploy the container to the server environment, exposing the API port (e.g., 8080).
+
+### Step 3: Frontend Deployment (React)
+1.  Build the static frontend assets: `npm run build`. This will create an optimized set of HTML, CSS, and JavaScript files in the `frontend/build` directory.
+2.  Create a Docker image for the frontend using a lightweight web server like Nginx. The Dockerfile will copy the contents of the `frontend/build` directory to the Nginx web root.
+3.  Push the Docker image to a container registry.
+4.  Deploy the container to the server environment, exposing the web port (e.g., 80).
+
+## 4. Verification
+
+1.  **Backend Health**: Access the backend's `/health` endpoint to confirm it is running and can connect to the database.
+2.  **Frontend Access**: Open the application's URL in a web browser. The login page should load correctly.
+3.  **End-to-End Test**:
+    - Log in with a test `PRODUCTION_LINE` user.
+    - Create a new delivery order.
+    - Verify the order appears in the database with the `NEW` status.
+    - Log in as a `WAREHOUSE` user and complete the order lifecycle.
+    - Confirm all state changes are correctly recorded in the `audit_logs` table.

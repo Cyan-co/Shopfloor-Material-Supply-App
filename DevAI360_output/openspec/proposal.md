@@ -2,28 +2,28 @@
 
 ## 1. Problem Statement
 
-The current manual process for requesting materials on the shopfloor is inefficient, prone to errors, and lacks real-time visibility. This leads to delays in production, incorrect material deliveries, and a lack of accountability, impacting overall operational efficiency.
+The current process for requesting materials from the warehouse for the shopfloor is manual, leading to inefficiencies, errors, and a lack of real-time visibility. This application aims to digitize and streamline this workflow, providing a single source of truth for all material requests.
 
 ## 2. Proposed Solution
 
-We will develop a web application to digitize and streamline the entire material supply workflow. The application will serve as a single source of truth for all requests, providing end-to-end tracking and clear communication between the shopfloor and the warehouse.
+We will build a web application that allows different user roles to manage the material supply lifecycle:
+- **Production Line Users** can create new material requests (Delivery Orders).
+- **Warehouse Users** can view and process these requests.
+- **Admins** can oversee the entire system, manage users, and intervene in the process if necessary.
 
-The core workflow is as follows:
-1.  A **Production Line User** creates a new material request (Delivery Order).
-2.  A **Warehouse User** views the new order, "picks it up" for processing (`In Preparation`), and marks it as `In Transit` when dispatched.
-3.  The **Production Line User** confirms receipt, marking the order as `Completed`.
-4.  An **Admin** user has full visibility and can manually edit or delete orders if necessary, with all such actions being logged.
+The system will be built as a modern, three-tier application with a clear separation of concerns between the database, a backend API, and a frontend UI.
 
 ## 3. Scope
 
-This initial version (MVP) will focus on the core workflow described above. It will include a self-contained user management system and a responsive, mobile-first design suitable for use on tablets and other devices on the shopfloor.
-
-**Out of Scope for v1.0:** Integration with inventory systems, push notifications, and advanced analytics.
+- User authentication with role-based access control.
+- Full lifecycle management for Delivery Orders: `NEW` -> `IN_PREPARATION` -> `IN_TRANSIT` -> `COMPLETED`.
+- An immutable audit trail for all significant actions.
+- A responsive user interface accessible on desktops, tablets, and mobile devices.
 
 ## 4. Technology Stack
 
-The solution will be a custom development project to ensure future flexibility and scalability.
-- **Backend**: Go (Golang) for a high-performance, compiled API.
-- **Frontend**: React (TypeScript) for a modern, component-based user interface.
-- **Database**: PostgreSQL for a robust and reliable relational data store.
-- **Deployment**: The application will be deployed as a set of containerized services.
+- **Backend**: Go
+- **Frontend**: React with TypeScript
+- **Database**: PostgreSQL
+- **Authentication**: JWT (JSON Web Tokens)
+- **Deployment**: Docker containers
