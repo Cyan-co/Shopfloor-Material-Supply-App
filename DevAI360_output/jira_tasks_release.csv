@@ -1,9 +1,15 @@
-ID,Summary,Description,Priority,Phase
-1,"Data Model and Database Setup","Define the database schema and set up migrations.",Must Have,Backend Development
-2,"Authentication Service","Implement user login and JWT generation.",Must Have,Backend Development
-3,"Core Order Service","Implement the business logic for the order lifecycle.",Must Have,Backend Development
-4,"API Endpoints & RBAC","Implement the full REST API and secure it with role-based access control.",Must Have,Backend Development
-5,"Project Setup and API Service","Initialize the React project and create a service to communicate with the backend.",Must Have,Frontend Development
-6,"Views and Components","Build all required pages and reusable components.",Must Have,Frontend Development
-7,"Role-Based UI Implementation","Implement the logic to dynamically show/hide UI elements based on the user's role.",Must Have,Frontend Development
-8,"Containerization and CI/CD","Create Dockerfiles for the backend and frontend and set up CI/CD pipelines.",Must Have,Deployment
+Summary,Description,Epic
+"Data Model and Database Setup","Initialize the PostgreSQL database, configure migration tools, and apply migrations for all required tables.","Epic 1: Data Model and Database Setup"
+"Implement Go Data Models","Create Go structs and enums corresponding to the database tables.","Epic 1: Data Model and Database Setup"
+"Backend Project Setup","Initialize a new Go project with the required structure for API, services, and data stores.","Epic 2: Backend API Development"
+"Implement Authentication Service and Middleware","Implement JWT-based authentication, password hashing, and middleware to protect routes.","Epic 2: Backend API Development"
+"Implement Core Order Service and Business Logic","Implement the service containing the core logic for managing the order lifecycle and state transitions.","Epic 2: Backend API Development"
+"Implement API Endpoints and RBAC","Build all REST API endpoints and secure them with role-based access control.","Epic 2: Backend API Development"
+"Implement Audit Logging","Integrate the AuditService to ensure all state-changing actions are logged.","Epic 2: Backend API Development"
+"Frontend Project Setup","Initialize a new React project with TypeScript, client-side routing, and state management.","Epic 3: Frontend UI Development"
+"Implement API Service","Create a reusable service in the frontend to handle all communication with the backend API.","Epic 3: Frontend UI Development"
+"Build Common UI Components","Build the set of reusable UI components like forms, cards, and navigation.","Epic 3: Frontend UI Development"
+"Build Role-Based Dashboards","Create the specific dashboard views for each user role, consuming the common components.","Epic 3: Frontend UI Development"
+"Ensure Application is Responsive","Add styling to ensure the UI is fully functional and looks good on mobile and tablet devices.","Epic 3: Frontend UI Development"
+"Containerize Frontend and Backend Applications","Create Dockerfiles for the Go backend and the React frontend to prepare for deployment.","Epic 4: Deployment and Verification"
+"Configure CI/CD Pipeline","Set up a continuous integration and deployment pipeline to automate testing and deployment.","Epic 4: Deployment and Verification"
