@@ -2,61 +2,46 @@
 
 ## 1. Business Domain
 
-### Domain
-This architecture concerns the **Shopfloor Material Supply Chain**. It defines the process of ordering, preparing, and delivering materials from a warehouse to a production line within a manufacturing environment.
-
-### Process Description
-The core business process is the "Delivery Order" lifecycle. This process begins when a Production Line User requests materials and ends when those materials are confirmed as received. The system provides a digital, traceable, and auditable record of this entire workflow, managed through a series of defined states and transitions.
+- **Domain**: Shop Floor Operations - Material Logistics Management.
+- **Process description**: This document models the business process for requesting, fulfilling, and delivering material supplies from a warehouse to a production line. The process is initiated by a production operator, fulfilled by warehouse staff, and overseen by administrators. It is designed to be a closed-loop, trackable workflow ensuring that every request is accounted for from initiation to completion.
 
 ---
 
 ## 2. Business Actors & Roles
 
 | Role | Responsibilities |
-|---|---|
-| **Production Line User** | - Creates new `Delivery Orders`. <br> - Views the status of their own orders. <br> - Confirms receipt of delivered orders, transitioning them to `COMPLETED`. |
-| **Warehouse User** | - Views a queue of `NEW` Delivery Orders. <br> - "Picks up" a `NEW` order, which assigns it to them and moves it to `IN_PREPARATION`. <br> - Marks a prepared order as `IN_TRANSIT` for delivery. |
-| **Admin** | - Has complete read-access to all orders in any state. <br> - Can manually change the state of any order for exception handling. <br> - Can delete any order. <br> - Manages user accounts and roles (Implied for future versions). |
+| :--- | :--- |
+| **Production Operator** | - Creates new material supply requests (orders).<br>- Monitors the status of their active requests.<br>- Confirms the receipt of delivered materials to complete the order. |
+| **Warehouse Staff** | - Views the queue of pending material requests.<br>- Accepts and takes ownership of a request for fulfillment.<br>- Updates the order status as it is being prepared and when it is in transit.<br>- Delivers the material to the production line. |
+| **Administrator** | - Has full oversight of all orders in the system.<br>- Can manually edit the status of any order to resolve exceptions.<br>- Can delete orders (soft delete) if they are created in error.<br>- Manages user roles and system settings. |
 
 ---
 
 ## 3. Business Process Flow (The Golden Path)
 
-The lifecycle of a Delivery Order follows a strict, linear state machine progression.
+The lifecycle of a material supply order follows a strict, linear progression:
 
-**NEW** -> **IN_PREPARATION** -> **IN_TRANSIT** -> **COMPLETED**
+`PENDING` -> `ACCEPTED` -> `IN_TRANSIT` -> `DELIVERED`
 
-- **`NEW`**: The initial state of an order upon creation. It is unassigned and awaits action from the warehouse.
-- **`IN_PREPARATION`**: The state after a Warehouse User has accepted the order. The materials are being gathered.
-- **`IN_TRANSIT`**: The state indicating the materials have left the warehouse and are on their way to the production line.
-- **`COMPLETED`**: The terminal state indicating the Production Line User has successfully received the materials.
-
-An additional terminal state, **`DELETED`**, exists outside the golden path and is only accessible via an Admin action.
+- **PENDING**: A new order is created by a Production Operator and is awaiting action from the warehouse.
+- **ACCEPTED**: A Warehouse Staff member has claimed the order and is preparing the materials.
+- **IN_TRANSIT**: The materials have been prepared and are being transported to the production line.
+- **DELIVERED**: The Production Operator has confirmed receipt of the materials, and the order is complete.
 
 ---
 
 ## 4. Business Rules
 
-These rules are non-negotiable and must be enforced by the application's backend logic.
+These rules are mandatory and must be enforced by the backend business logic.
 
-### State Transition Rules
-1.  A Delivery Order can only be created in the `NEW` state.
-2.  Transition from `NEW` to `IN_PREPARATION` is the only allowed path from `NEW`.
-3.  Transition from `IN_PREPARATION` to `IN_TRANSIT` is the only allowed path from `IN_PREPARATION`.
-4.  Transition from `IN_TRANSIT` to `COMPLETED` is the only allowed path from `IN_TRANSIT`.
-5.  `COMPLETED` and `DELETED` are terminal states; no transitions are allowed from them.
+| ID | Rule | Implementation Constraint |
+| :-- | :-- | :-- |
+| **BR-01** | An order can only be accepted by Warehouse Staff if it is in the `PENDING` state. | The `acceptOrder()` service method must first verify the current status is `PENDING`. |
+| **BR-02** | An order can only be marked `IN_TRANSIT` by the assigned Warehouse Staff if it is in the `ACCEPTED` state. | The `markInTransit()` service method must verify the current status is `ACCEPTED` and that the caller is the assigned user. |
+| **BR-03** | An order can only be marked `DELIVERED` by a Production Operator if it is in the `IN_TRANSIT` state. | The `confirmDelivery()` service method must verify the current status is `IN_TRANSIT`. |
+| **BR-04** | The core order details (material name, quantity, target line) are immutable after creation. | The update/edit service methods must not allow modification of these fields for existing orders. |
+| **BR-05** | Only an Administrator can edit the status of an order outside the standard flow. | An `adminEditOrder()` endpoint must be created and protected by an Admin role check. All such edits must generate an audit log entry with a reason. |
+| **BR-06** | Only an Administrator can delete (soft delete) an order. | A `deleteOrder()` endpoint must be protected by an Admin role check and must set an `is_active` flag to `false` rather than performing a hard delete. |
+| **BR-07** | A Warehouse Staff member cannot accept a new order if they already have an active (`ACCEPTED` or `IN_TRANSIT`) order. | The `acceptOrder()` method must check if the user has other active orders before proceeding. (This is a sample rule that might be clarified with the business). |
 
-### Role-Based Access Control (RBAC) Rules
-1.  **Creation**: Only a `Production Line User` can create a `NEW` order.
-2.  **Pick Up**: Only a `Warehouse User` can transition an order from `NEW` to `IN_PREPARATION`. The user performing this action is permanently assigned to the order.
-3.  **Mark for Transit**: Only the assigned `Warehouse User` can transition their order from `IN_PREPARATION` to `IN_TRANSIT`.
-4.  **Receive**: Only the originating `Production Line User` can transition an order from `IN_TRANSIT` to `COMPLETED`.
-5.  **Admin Override**: An `Admin` can transition any order to any state (except from a terminal state).
-6.  **Deletion**: Only an `Admin` can move an order to the `DELETED` state. A reason for this action must be recorded in the audit log.
-
-### Immutability Rules
-1.  The `Requestor Name` and original `Creation Timestamp` of an order are immutable and can never be changed.
-2.  Once an order is in a terminal state (`COMPLETED` or `DELETED`), all its attributes are immutable.
-
-### Exception Handling Rules
-1.  Any manual state change performed by an `Admin` must require a "reason for change" text input, which must be stored in the immutable audit log.
+---
