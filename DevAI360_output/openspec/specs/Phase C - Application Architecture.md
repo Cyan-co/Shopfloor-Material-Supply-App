@@ -2,71 +2,103 @@
 
 ## 1. Component Overview
 
-This architecture mandates a decoupled Single-Page Application (SPA) model. The frontend and backend are separate applications that communicate via a RESTful API.
-
 ### Backend (Spring Boot 3.x)
 
-- **Language:** Java 21
-- **Framework:** Spring Boot 3.x
-- **Root Package:** `com.bosch.shopfloor`
-- **Architecture Pattern:** A strict three-tier Controller-Service-Repository pattern is mandatory.
-  - **Controllers:** Handle HTTP requests, deserialize inputs, and serialize outputs. No business logic is permitted here.
-  - **Services:** Contain all business logic, transaction management, and security enforcement (RBAC). This is the core application layer.
-  - **Repositories:** Responsible for data access and persistence.
+- **Root Package**: `com.bosch.shopfloor.materialsupply`
+- **Architecture Pattern**: Controller-Service-Repository (Layered Architecture)
 
-#### Naming Conventions:
-- Controllers: `DeliveryOrderController.java`, `AdminController.java`
-- Services: `DeliveryOrderService.java`, `AuditLogService.java`
-- Repositories: `DeliveryOrderRepository.java`, `AuditLogRepository.java`
+**Naming Conventions**:
+- Controllers: `OrderController.java`, `AdminController.java`
+- Services: `OrderService.java`, `UserService.java`
+- Repositories: `OrderRepository.java`, `UserRepository.java`
 
-#### Rules:
-- All business rules and state transition logic defined in Phase B **MUST** be implemented exclusively in the Service layer.
-- Role-based access control (RBAC) checks **MUST** be performed within the Service layer methods before executing any business logic.
+**Rules**:
+- All business logic, including state transition validation as defined in the Business Architecture (Phase B), MUST reside exclusively in the Service layer.
+- Role-Based Access Control (RBAC) MUST be enforced at the entry point of each Service layer method using annotations (e.g., `@PreAuthorize`). Controllers are responsible for request/response mapping only.
 
 ---
 
-### Frontend (Angular 17+)
+### Frontend Standards (Angular 17+)
 
-- **Framework:** Angular 17+
-- **Styling:** Tailwind CSS for a utility-first styling approach.
-- **App Prefix:** `app-shopfloor`
-- **Architecture:** The application will be structured into modules corresponding to user roles (e.g., `production-line`, `warehouse`, `admin`).
+- **App Prefix**: `app-shopfloor`
+- **Styling**: Tailwind CSS for a utility-first styling approach.
 
-#### Naming Conventions:
-- Components: `order-dashboard.component.ts`, `create-order-form.component.ts`
-- Services: `order-api.service.ts` (for communicating with the backend API)
+**Naming Conventions**:
+- Components: `order-list.component.ts`, `create-order-form.component.ts`
+- Services: `order-api.service.ts`
 
-#### Rules:
-- The UI **MUST** dynamically render components and actions (e.g., show/hide buttons) based on the authenticated user's role.
-- The frontend **MUST NOT** contain any business rule logic. It is only responsible for presentation and user interaction. All business decisions are made by the backend.
+**Rules**:
+- The UI MUST be reactive to the authenticated user's role. Components and actions (e.g., buttons) that are not permitted for a given role must be hidden or disabled.
+- The frontend must not contain any business logic for state transitions or permissions; it is purely a presentation and user interaction layer that consumes the backend API.
 
 ---
 
 ## 2. Integration Contract
 
-- **API Style:** RESTful
-- **Base Path:** `/api`
-- **Data Format:** JSON (`application/json`) will be used for all request and response bodies.
-- **Authentication:** Stateless token-based authentication (e.g., JWT) will be used. The token will contain the user's ID and role.
+- **API Style**: RESTful
+- **Base Path**: `/api`
+- **Format**: JSON (`application/json`) over HTTP/S.
+- **Authentication**: JWT (JSON Web Tokens) passed in the `Authorization` header.
+- **Status Codes**:
+  - `200 OK`: Successful retrieval or update.
+  - `201 Created`: Successful creation of a new resource.
+  - `400 Bad Request`: The request violates a business rule (e.g., invalid state transition). The response body must contain a clear error message.
+  - `403 Forbidden`: The user is authenticated but does not have the required role for the action.
+  - `404 Not Found`: The requested resource (e.g., an order) does not exist.
 
 ---
 
 ## 3. Endpoints (Derived from Business Architecture)
 
-The following endpoints are derived directly from the business process defined in Phase B.
+These endpoints directly map to the business processes and rules defined in Phase B.
 
-| Method | Endpoint | Allowed Roles | Description |
-|---|---|---|---|
-| `POST` | `/api/orders` | `Production Line User` | Creates a new Delivery Order. The request body contains `materialName`, `quantity`, and `deliveryLocation`. |
-| `GET` | `/api/orders` | All Roles | Lists orders. Results are filtered based on role: Production Line User sees their own; Warehouse User sees 'NEW'; Admin sees all. |
-| `GET` | `/api/orders/{id}` | All Roles | Retrieves a single Delivery Order by its ID. |
-| `PATCH` | `/api/orders/{id}/status` | `Warehouse User`, `Production Line User`, `Admin` | Updates the status of an order. The request body is `{"status": "NEW_STATUS"}`. The backend service will enforce which roles can transition to which states. |
-| `DELETE` | `/api/orders/{id}` | `Admin` | Deletes a Delivery Order. A reason for deletion must be logged. |
+| Method | Endpoint | Description | Permitted Roles | Business Rule Mapping |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/orders` | Get a list of orders. Operators see their own; Warehouse/Admins see all. | Production Operator, Warehouse Staff, Admin | - |
+| `POST` | `/api/orders` | Create a new material supply order. | Production Operator | BR-04 |
+| `PATCH`| `/api/orders/{id}/status`| Update the status of an order. The request body must contain the new status (`"status": "ACCEPTED"`).| Warehouse Staff, Production Operator, Admin | BR-01, BR-02, BR-03, BR-05 |
+| `DELETE`| `/api/orders/{id}`| Soft-delete an order. | Admin | BR-06 |
 
 ---
 
-## 4. Security Implementation
+## 4. Application Pattern
 
-- **Enforcement Layer:** Security, especially Role-Based Access Control (RBAC), **MUST** be enforced in the **backend Service layer**.
-- **Trust Model:** The frontend is considered an untrusted client. No security decisions should be made based on information coming from the frontend without backend verification.
-- **Roles:** The roles used for security checks (`Production Line User`, `Warehouse User`, `Admin`) **MUST** directly correspond to the roles defined in the Phase B Business Architecture. These roles will be embedded in the user's authentication token.
+- **Decoupled Client-Server Architecture**: The Angular Single-Page Application (SPA) is the client, and the Spring Boot application is the server. They communicate exclusively through the RESTful API defined above. This enforces the **API-First Design** principle from Phase A.
+- **Stateless Services**: The Spring Boot backend will be fully stateless, adhering to the principle defined in Phase A. All state is persisted in the database.
+
+**Coding Standards**:
+- Java package: `com.bosch.shopfloor.materialsupply`
+- Angular prefix: `app`
+
+---
+
+## 5. Interface Contract (API)
+
+- **Base Path**: `/api`
+- **Format**: JSON
+
+**Example Request Body for `PATCH /api/orders/{id}/status`**:
+```json
+{
+  "status": "ACCEPTED"
+}
+```
+
+**Example Error Response (`400 Bad Request`)**:
+```json
+{
+  "timestamp": "2023-10-27T10:00:00Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid state transition: Cannot accept an order that is already IN_TRANSIT.",
+  "path": "/api/orders/123/status"
+}
+```
+
+---
+
+## 6. Security Implementation
+
+- RBAC will be implemented in the Spring Boot backend using Spring Security.
+- Each service method corresponding to an action will be annotated (e.g., `@PreAuthorize("hasRole('ADMIN')")`) to ensure that the business logic is protected.
+- The frontend will receive the user's role upon login and will use this information for UI presentation only. The frontend is **not** a security boundary and must not be trusted. All authorization decisions are made by the backend on every request.
